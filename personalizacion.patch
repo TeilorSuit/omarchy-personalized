@@ -108,7 +108,7 @@ index 33161f0..5287dac 100644
          return super.onUnbind(intent);
      }
 diff --git a/launcher/app/src/main/java/com/omarchytv/home/HomeV29.java b/launcher/app/src/main/java/com/omarchytv/home/HomeV29.java
-index 0934912..7a8b1fd 100644
+index 0934912..1f808c7 100644
 --- a/launcher/app/src/main/java/com/omarchytv/home/HomeV29.java
 +++ b/launcher/app/src/main/java/com/omarchytv/home/HomeV29.java
 @@ -585,14 +585,9 @@ final class HomeV29 extends FrameLayout {
@@ -150,7 +150,7 @@ index 0934912..7a8b1fd 100644
 +                    hsv[1] = Math.max(.45f, hsv[1]); hsv[2] = .27f;
 +                    int dark = Color.HSVToColor(hsv); hsv[2] = .10f;
 +                    bg.setOrientation(GradientDrawable.Orientation.TL_BR);
-+                    bg.setColors(new int[]{dark, Color.HSVToColor(hsv)});
++                    bg.setColors(new int[]{Theme.withAlpha(dark, .68f), Theme.withAlpha(Color.HSVToColor(hsv), .68f)});
 +                } else bg.setColor(Theme.withAlpha(t.bgLight, Math.max(0.30f, opacity(cfg) + noBlur() - 0.15f)));
                  f.setBackground(bg);
              }
@@ -187,7 +187,7 @@ index 0934912..7a8b1fd 100644
          Drawable d = f.getForeground();
          if (d instanceof FocusRing) ((FocusRing) d).set(focused);
 diff --git a/launcher/app/src/main/java/com/omarchytv/home/MainActivity.java b/launcher/app/src/main/java/com/omarchytv/home/MainActivity.java
-index efc214c..304a66d 100644
+index efc214c..96e5856 100644
 --- a/launcher/app/src/main/java/com/omarchytv/home/MainActivity.java
 +++ b/launcher/app/src/main/java/com/omarchytv/home/MainActivity.java
 @@ -826,6 +826,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
@@ -203,10 +203,12 @@ index efc214c..304a66d 100644
              case "walker":
                  openWalker();
                  break;
-@@ -996,6 +1002,30 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
+@@ -996,10 +1002,51 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
  
      /** Config the views were built with; a newer JSON file (adb push, LAN companion) rebuilds the screen. */
      private LauncherConfig builtWith;
++    private long homePausedAt;
++    private boolean quickHomeEligible, quickHomeIntent;
 +    private static final long PERSONAL_WALLPAPER_INTERVAL = 60L * 60L * 1000L;
 +    private final Runnable personalWallpaperTick = new Runnable() {
 +        @Override public void run() {
@@ -234,7 +236,26 @@ index efc214c..304a66d 100644
  
      @Override
      protected void onResume() {
-@@ -1023,6 +1053,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
+         super.onResume();
++        LauncherConfig fastCfg = LauncherConfig.get(this);
++        if (quickHomeIntent && quickHomeEligible && builtWith == fastCfg && workspace == 1) {
++            quickHomeIntent = false;
++            resumed = true;
++            OmarchyLink.setHomeVisible(true);
++            OmaFireLayer.onResume(this, findViewById(R.id.wallpaper));
++            bindCompanion();
++            resetIdle();
++            handler.removeCallbacks(personalWallpaperTick);
++            handler.post(personalWallpaperTick);
++            handler.postDelayed(minuteTick, untilNextMinute());
++            handler.postDelayed(blink, BLINK_MS);
++            return;
++        }
++        quickHomeIntent = false;
+         BootScreenView.onResume(this, findViewById(R.id.root));
+         OmaFireLayer.onResume(this, findViewById(R.id.wallpaper));   // v2.14 OmaFire animated wallpaper   // "wake" mode: replay after the screen came on
+         bindCompanion();
+@@ -1023,6 +1070,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
          }
          builtWith = cfg;
          resumed = true;
@@ -243,7 +264,16 @@ index efc214c..304a66d 100644
          // KEYCODE_ASSIST never reaches dispatchKeyEvent: the system starts the Assistant role holder instead. With
          // OmarchyTV holding that role, the mic key lands here: the Grok Bot companion by voice ("voiceKey": "companion",
          // the default) or Walker ("launcher"; pressed again while Walker is open it starts voice search).
-@@ -1107,6 +1139,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
+@@ -1101,12 +1150,16 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
+ 
+     @Override
+     protected void onPause() {
++        homePausedAt = android.os.SystemClock.uptimeMillis();
++        quickHomeEligible = resumed && workspace == 1 && home != null && walker == null
++                && (menu == null || !menu.isShowing()) && movingPos < 0 && home.movingApp < 0;
+         super.onPause();
+         if (companion != null) { companion.setArmed(false); companion.stop(); }
+         OmaFireLayer.onPause();
          resumed = false;
          OmarchyLink.setHomeVisible(false);
          handler.removeCallbacks(idle);
@@ -251,7 +281,7 @@ index efc214c..304a66d 100644
          handler.removeCallbacks(minuteTick);
          handler.removeCallbacks(blink);
          handler.removeCallbacks(agentsTick);
-@@ -3282,6 +3315,15 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
+@@ -3282,6 +3335,15 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
      private AsciiMenu.Page wallpaperPage() {
          LauncherConfig cfg = LauncherConfig.get(this);
          AsciiMenu.Page p = new AsciiMenu.Page(str(R.string.menu_wallpaper));
@@ -267,6 +297,26 @@ index efc214c..304a66d 100644
          String lRandWp = str(R.string.set_random_wallpaper);
          p.add(lRandWp, str(cfg.randomWallpaper ? R.string.on : R.string.off), r -> {
              boolean n = !cfg.randomWallpaper;
+@@ -4180,6 +4242,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
+     @Override
+     protected void onNewIntent(Intent intent) {
+         super.onNewIntent(intent);   // HOME pressed while on home: wake up from the screensaver
++        quickHomeIntent = !resumed && quickHomeEligible
++                && android.os.SystemClock.uptimeMillis() - homePausedAt < 300
++                && Intent.ACTION_MAIN.equals(intent.getAction()) && intent.hasCategory(Intent.CATEGORY_HOME)
++                && !intent.hasExtra(EXTRA_ACTION);
+         if (intent.getBooleanExtra(HomeCheck.EXTRA_ASK, false)) setIntent(intent);   // HomeCheck from boot
+         if (Intent.ACTION_ASSIST.equals(intent.getAction())) setIntent(intent);   // mic key, handled in onResume
+         hideSaver();
+@@ -4190,7 +4256,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
+         }
+         if (home != null && walker == null && (menu == null || !menu.isShowing())) {   // HOME key: back to workspace 1
+             if (workspace != 1) setWorkspace(1);
+-            home.onHomeShown();
++            if (!quickHomeIntent && resumed) home.onHomeShown();
+         }
+     }
+ 
 diff --git a/launcher/app/src/main/java/com/omarchytv/home/ScreensaverPreviewActivity.java b/launcher/app/src/main/java/com/omarchytv/home/ScreensaverPreviewActivity.java
 index 46ce2b2..48efede 100644
 --- a/launcher/app/src/main/java/com/omarchytv/home/ScreensaverPreviewActivity.java
@@ -443,10 +493,10 @@ index 0000000..bfa5ef9
 +}
 diff --git a/launcher/app/src/main/java/com/omarchytv/home/TeilorQuickPanel.java b/launcher/app/src/main/java/com/omarchytv/home/TeilorQuickPanel.java
 new file mode 100644
-index 0000000..e9fb040
+index 0000000..4030ea2
 --- /dev/null
 +++ b/launcher/app/src/main/java/com/omarchytv/home/TeilorQuickPanel.java
-@@ -0,0 +1,164 @@
+@@ -0,0 +1,167 @@
 +package com.omarchytv.home;
 +
 +import android.app.Activity;
@@ -515,9 +565,12 @@ index 0000000..e9fb040
 +        ImageView eris = new ImageView(this); eris.setScaleType(ImageView.ScaleType.CENTER_CROP);
 +        art.addView(eris, new FrameLayout.LayoutParams(-1, -1));
 +        try {
++            String asset = "eris-panel.gif";
++            try (java.io.InputStream probe = getAssets().open("eris-panel.webp")) { asset = "eris-panel.webp"; }
++            catch (java.io.IOException missing) { /* The optional high-quality WebP was not supplied. */ }
 +            if (android.os.Build.VERSION.SDK_INT >= 28) {
 +                Drawable image = android.graphics.ImageDecoder.decodeDrawable(
-+                        android.graphics.ImageDecoder.createSource(getAssets(), "eris-panel.gif"),
++                        android.graphics.ImageDecoder.createSource(getAssets(), asset),
 +                        (decoder, info, source) -> {
 +                            int w = info.getSize().getWidth(), h = info.getSize().getHeight();
 +                            int limit = Math.max(dp(205), 430);
@@ -526,13 +579,13 @@ index 0000000..e9fb040
 +                                    Math.max(1, Math.round(w * (float) limit / longest)),
 +                                    Math.max(1, Math.round(h * (float) limit / longest)));
 +                        });
-+                eris.setImageDrawable(image);
++                image.setFilterBitmap(true); eris.setImageDrawable(image);
 +                if (image instanceof AnimatedImageDrawable) {
 +                    AnimatedImageDrawable anim = (AnimatedImageDrawable) image;
 +                    anim.setRepeatCount(AnimatedImageDrawable.REPEAT_INFINITE); erisAnimation = anim;
 +                }
 +            } else {
-+                try (java.io.InputStream in = getAssets().open("eris-panel.gif")) {
++                try (java.io.InputStream in = getAssets().open(asset)) {
 +                    eris.setImageBitmap(android.graphics.BitmapFactory.decodeStream(in));
 +                }
 +            }

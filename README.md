@@ -2,7 +2,7 @@
 
 Personalización de [OmarchyTV](https://github.com/piermark/omarchytv) v2.15.1, basada en el commit `0365e6b704ebb0f99c03b5c460fd36d5e84fdb9f`. OmarchyTV es obra de Marco Porro y sus colaboradores; este repositorio contiene cambios personales, no es el proyecto oficial. Se conserva su licencia MIT en `LICENSE`.
 
-Incluye dock con nombres y colores, logotipo TEILOR, paneles propios de ajustes y entradas, remapeo del mando, salvapantallas de vídeo y rotación de tres fondos personales aproximadamente cada hora mientras el inicio está visible. Los paneles cierran el anterior y usan una transición breve. Se puede activar o desactivar la rotación en el menú de fondos del tema personalizado.
+Incluye dock con nombres, colores y transparencia, logotipo TEILOR, paneles propios de ajustes y entradas, remapeo del mando, salvapantallas de vídeo y rotación de tres fondos personales aproximadamente cada hora mientras el inicio está visible. Al pulsar Home estando ya en inicio se evita volver a cargarlo. Los paneles cierran el anterior y usan una transición breve. Se puede activar o desactivar la rotación en el menú de fondos del tema personalizado.
 
 **Los fondos, el GIF y el vídeo no se distribuyen aquí.** Aporta tus propios archivos y comprueba que tienes derecho a utilizarlos. La clave de firma, los APK y los ajustes concretos de cada televisor también permanecen fuera del repositorio. El respaldo completo de Teilor está guardado por separado en su PC.
 
@@ -15,6 +15,8 @@ Requisitos: Git, JDK 17 y Android SDK con plataforma 34 y build-tools 34.0.0. Pr
 ```
 
 El script clona el proyecto original en el commit fijado, aplica `personalizacion.patch` y copia los archivos propios. No modifica el televisor ni el repositorio de origen. Para compilar, entra en la carpeta `launcher` creada y ejecuta `./gradlew.bat assembleDebug`. `config.example.json` sirve como punto de partida para la configuración, pero hay que adaptarlo a las aplicaciones instaladas.
+
+Opcionalmente, se puede colocar una animación WebP propia en `launcher/app/src/main/assets/eris-panel.webp`; el panel la preferirá sobre el GIF. La versión usada en la Hyundai es un WebP de 430 × 430 creado a partir del GIF aportado por el usuario, para evitar una nueva reducción a la paleta limitada de GIF. Ninguno de esos archivos personales está incluido aquí.
 
 ## Instalación y compatibilidad
 
