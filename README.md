@@ -22,4 +22,6 @@ Esta versión se probó en un Hyundai HYLED4326QG con Android/Google TV 14. Los 
 
 Para actualizar una instalación existente, el APK debe firmarse con la misma clave que la instalación; guarda esa clave en privado. Un APK debug con otra firma no actualiza la instalación existente. No desinstales a ciegas, ya que se perderían datos. Las preferencias del temporizador están en `teilor_wallpaper` dentro de los datos privados de la aplicación; no forman parte de `omarchytv.json`.
 
+El remapeo depende del servicio de accesibilidad «Botón Inicio OmarchyTV». Después de actualizar o detener forzosamente la aplicación, comprueba que siga habilitado y que los botones físicos abran los paneles; si no, vuelve a habilitarlo desde Accesibilidad. No basta con abrir los paneles mediante una orden ADB para probar el mando. El GIF personal se puede reducir antes de compilar para ahorrar almacenamiento y memoria; el panel limita además la resolución de decodificación.
+
 La opción de configuración original que rota temas y fondos es independiente y se deja desactivada para usar únicamente los tres fondos personales. No se fuerza una transición mientras se usa otra aplicación o la TV duerme: al volver al inicio se revisa si ya pasó una hora.

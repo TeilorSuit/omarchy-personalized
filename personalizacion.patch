@@ -443,10 +443,10 @@ index 0000000..bfa5ef9
 +}
 diff --git a/launcher/app/src/main/java/com/omarchytv/home/TeilorQuickPanel.java b/launcher/app/src/main/java/com/omarchytv/home/TeilorQuickPanel.java
 new file mode 100644
-index 0000000..c067b2c
+index 0000000..e9fb040
 --- /dev/null
 +++ b/launcher/app/src/main/java/com/omarchytv/home/TeilorQuickPanel.java
-@@ -0,0 +1,156 @@
+@@ -0,0 +1,164 @@
 +package com.omarchytv.home;
 +
 +import android.app.Activity;
@@ -517,7 +517,15 @@ index 0000000..c067b2c
 +        try {
 +            if (android.os.Build.VERSION.SDK_INT >= 28) {
 +                Drawable image = android.graphics.ImageDecoder.decodeDrawable(
-+                        android.graphics.ImageDecoder.createSource(getAssets(), "eris-panel.gif"));
++                        android.graphics.ImageDecoder.createSource(getAssets(), "eris-panel.gif"),
++                        (decoder, info, source) -> {
++                            int w = info.getSize().getWidth(), h = info.getSize().getHeight();
++                            int limit = Math.max(dp(205), 430);
++                            int longest = Math.max(w, h);
++                            if (longest > limit) decoder.setTargetSize(
++                                    Math.max(1, Math.round(w * (float) limit / longest)),
++                                    Math.max(1, Math.round(h * (float) limit / longest)));
++                        });
 +                eris.setImageDrawable(image);
 +                if (image instanceof AnimatedImageDrawable) {
 +                    AnimatedImageDrawable anim = (AnimatedImageDrawable) image;
