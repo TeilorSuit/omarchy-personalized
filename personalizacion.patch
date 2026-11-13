@@ -1,0 +1,647 @@
+diff --git a/launcher/app/src/main/AndroidManifest.xml b/launcher/app/src/main/AndroidManifest.xml
+index 303fdb8..f0a50d2 100644
+--- a/launcher/app/src/main/AndroidManifest.xml
++++ b/launcher/app/src/main/AndroidManifest.xml
+@@ -127,6 +127,12 @@
+             </intent-filter>
+         </activity>
+ 
++        <activity android:name=".TeilorQuickPanel" android:exported="false"
++            android:excludeFromRecents="true" android:noHistory="true"
++            android:theme="@android:style/Theme.Translucent.NoTitleBar.Fullscreen" />
++        <activity android:name=".TeilorInputsPanel" android:exported="false"
++            android:excludeFromRecents="true" android:noHistory="true"
++            android:theme="@android:style/Theme.Translucent.NoTitleBar.Fullscreen" />
+         <!-- v2.14 OmarchyTV Arcade: the games in a WebView (assets/games), in the launcher's process so it can reach the PC link. -->
+         <activity
+             android:name=".ArcadeActivity"
+diff --git a/launcher/app/src/main/java/com/omarchytv/home/BlockFont.java b/launcher/app/src/main/java/com/omarchytv/home/BlockFont.java
+index 5408c36..03b4588 100644
+--- a/launcher/app/src/main/java/com/omarchytv/home/BlockFont.java
++++ b/launcher/app/src/main/java/com/omarchytv/home/BlockFont.java
+@@ -22,6 +22,9 @@ final class BlockFont {
+         GLYPHS.put('H', new String[]{"##  ##", "##  ##", "######", "##  ##", "##  ##"});
+         GLYPHS.put('Y', new String[]{"##  ##", "##  ##", " #### ", "  ##  ", "  ##  "});
+         GLYPHS.put('T', new String[]{"######", "  ##  ", "  ##  ", "  ##  ", "  ##  "});
++        GLYPHS.put('E', new String[]{"######", "##    ", "##### ", "##    ", "######"});
++        GLYPHS.put('I', new String[]{"######", "  ##  ", "  ##  ", "  ##  ", "######"});
++        GLYPHS.put('L', new String[]{"##    ", "##    ", "##    ", "##    ", "######"});
+         GLYPHS.put('V', new String[]{"##  ##", "##  ##", "##  ##", " #### ", "  ##  "});
+         GLYPHS.put(' ', new String[]{"  ", "  ", "  ", "  ", "  "});
+     }
+diff --git a/launcher/app/src/main/java/com/omarchytv/home/HomeOverride.java b/launcher/app/src/main/java/com/omarchytv/home/HomeOverride.java
+index 33161f0..5287dac 100644
+--- a/launcher/app/src/main/java/com/omarchytv/home/HomeOverride.java
++++ b/launcher/app/src/main/java/com/omarchytv/home/HomeOverride.java
+@@ -6,6 +6,11 @@ import android.content.Intent;
+ import android.content.pm.PackageManager;
+ import android.content.pm.ResolveInfo;
+ import android.os.SystemClock;
++import android.os.Handler;
++import android.os.Looper;
++import android.view.InputDevice;
++import android.view.KeyEvent;
++import android.view.ViewConfiguration;
+ import android.view.accessibility.AccessibilityEvent;
+ 
+ import java.util.HashSet;
+@@ -37,6 +42,52 @@ public class HomeOverride extends AccessibilityService {
+     private final Set<String> homes = new HashSet<>();
+     /** Double events per Home press (Fire OS) count once; loop guard of 4 takeovers in 15 s (issue #58). */
+     private final TakeoverGuard guard = new TakeoverGuard();
++    private final Handler keysHandler = new Handler(Looper.getMainLooper());
++    private boolean sourceDown, sourceLong;
++    private final Runnable sourceHold = () -> {
++        if (sourceDown) { sourceLong = true; openApp("com.google.android.youtube.tvmusic"); }
++    };
++
++    @Override
++    protected boolean onKeyEvent(KeyEvent event) {
++        int scan = event.getScanCode();
++        String target = scan == 758 ? "com.android.mgstxNF"
++                : scan == 569 ? "com.google.android.youtube.tv"
++                : scan == 230 ? "com.darkdeveloper.kawaiianimes" : null;
++        boolean settings = scan == 378 || event.getKeyCode() == KeyEvent.KEYCODE_SETTINGS;
++        if (target == null && scan != 240 && !settings) return false;
++        if (scan == 240) {
++            if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
++                keysHandler.removeCallbacks(sourceHold); sourceDown = true; sourceLong = false;
++                keysHandler.postDelayed(sourceHold, ViewConfiguration.getLongPressTimeout());
++            } else if (event.getAction() == KeyEvent.ACTION_UP) {
++                keysHandler.removeCallbacks(sourceHold);
++                boolean shortWithoutDown = !sourceDown && event.getEventTime() - event.getDownTime() < ViewConfiguration.getLongPressTimeout();
++                if (!sourceLong && !event.isCanceled() && (sourceDown || shortWithoutDown)) openInputs();
++                sourceDown = false; sourceLong = false;
++            }
++        } else if (event.getAction() == KeyEvent.ACTION_UP && !event.isCanceled()) {
++            if (settings) startActivity(new Intent(this, TeilorQuickPanel.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
++            else openApp(target);
++        }
++        return true;
++    }
++
++    private void openInputs() {
++        try {
++            startActivity(new Intent(this, TeilorInputsPanel.class)
++                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
++        } catch (RuntimeException ex) { android.util.Log.w("TeilorRemote", "No se pudo abrir Entradas", ex); }
++    }
++
++    private void openApp(String pkg) {
++        if (pkg == null) return;
++        try {
++            Intent launch = getPackageManager().getLeanbackLaunchIntentForPackage(pkg);
++            if (launch == null) launch = getPackageManager().getLaunchIntentForPackage(pkg);
++            if (launch != null) startActivity(launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
++        } catch (RuntimeException ignored) { }
++    }
+ 
+     static boolean enabled() {
+         return instance != null;
+@@ -55,6 +106,8 @@ public class HomeOverride extends AccessibilityService {
+ 
+     @Override
+     public boolean onUnbind(Intent intent) {
++        keysHandler.removeCallbacks(sourceHold);
++        sourceDown = false;
+         instance = null;
+         return super.onUnbind(intent);
+     }
+diff --git a/launcher/app/src/main/java/com/omarchytv/home/HomeV29.java b/launcher/app/src/main/java/com/omarchytv/home/HomeV29.java
+index 0934912..7a8b1fd 100644
+--- a/launcher/app/src/main/java/com/omarchytv/home/HomeV29.java
++++ b/launcher/app/src/main/java/com/omarchytv/home/HomeV29.java
+@@ -585,14 +585,9 @@ final class HomeV29 extends FrameLayout {
+     }
+ 
+     private String logoText() {
+-        try (InputStream in = act.getAssets().open("saver/screensaver-tv.txt")) {
+-            byte[] b = new byte[in.available()];
+-            int n = in.read(b);
+-            String txt = new String(b, 0, Math.max(0, n), StandardCharsets.UTF_8);
+-            return txt.replaceAll("\\s+$", "");
+-        } catch (Exception e) {
+-            return "OMARCHY TV";
+-        }
++        StringBuilder result = new StringBuilder();
++        for (char[] line : BlockFont.render("TEILOR")) result.append(new String(line).replace('#', '\u2588')).append('\n');
++        return result.toString();
+     }
+ 
+     // ---- alpha rules (spec §2): windows = opacity, bar = +0.10 (max 0.95), tiles = −0.15 (min 0.30); no blur
+@@ -2128,7 +2123,7 @@ final class HomeV29 extends FrameLayout {
+             int inner = inner();
+             int gap = px(20);
+             int w = tileW(inner, gap, cols);
+-            RecyclerView.LayoutParams lp = new RecyclerView.LayoutParams(tvFirst ? w : (inner / cols), w * 9 / 16);
++            RecyclerView.LayoutParams lp = new RecyclerView.LayoutParams(tvFirst ? w : (inner / cols), w * (tvFirst && cfg.textTiles ? 6 : 9) / 16);
+             if (tvFirst) lp.rightMargin = pos == getItemCount() - 1 ? 0 : gap;
+             else {
+                 lp.width = w;
+@@ -2157,7 +2152,15 @@ final class HomeV29 extends FrameLayout {
+                 tv.setVisibility(banner != null ? GONE : VISIBLE);
+                 tv.setTextColor(cfg.textTiles ? t.fg : t.fgBright);
+                 GradientDrawable bg = new GradientDrawable();
+-                bg.setColor(cfg.textTiles ? t.bgLight : Theme.withAlpha(t.bgLight, Math.max(0.30f, opacity(cfg) + noBlur() - 0.15f)));
++                if (cfg.textTiles) {
++                    int color = appColor(apps.packageAt(app));
++                    float[] hsv = new float[3];
++                    Color.colorToHSV(color, hsv);
++                    hsv[1] = Math.max(.45f, hsv[1]); hsv[2] = .27f;
++                    int dark = Color.HSVToColor(hsv); hsv[2] = .10f;
++                    bg.setOrientation(GradientDrawable.Orientation.TL_BR);
++                    bg.setColors(new int[]{dark, Color.HSVToColor(hsv)});
++                } else bg.setColor(Theme.withAlpha(t.bgLight, Math.max(0.30f, opacity(cfg) + noBlur() - 0.15f)));
+                 f.setBackground(bg);
+             }
+             f.setAlpha(movingApp >= 0 && app == movingApp && (movingInGrid != tvFirst) ? 0.85f : 1f);
+@@ -2193,6 +2196,30 @@ final class HomeV29 extends FrameLayout {
+         }
+     }
+ 
++    private final java.util.Map<String, Integer> appColors = new java.util.HashMap<>();
++    private int appColor(String pkg) {
++        if (pkg == null) return 0xff526784;
++        Integer cached = appColors.get(pkg);
++        if (cached != null) return cached;
++        int color = 0xff526784;
++        if (pkg.equals("com.google.android.youtube.tv") || pkg.equals("com.google.android.youtube.tvmusic")) color = 0xffe21b24;
++        else if (pkg.equals("com.spotify.tv.android")) color = 0xff1db954;
++        else try {
++            Drawable icon = act.getPackageManager().getApplicationIcon(pkg).mutate();
++            android.graphics.Bitmap bitmap = android.graphics.Bitmap.createBitmap(48, 48, android.graphics.Bitmap.Config.ARGB_8888);
++            icon.setBounds(0, 0, 48, 48); icon.draw(new android.graphics.Canvas(bitmap));
++            int[] bins = new int[24]; float[] hsv = new float[3];
++            for (int y = 0; y < 48; y++) for (int x = 0; x < 48; x++) {
++                int pixel = bitmap.getPixel(x, y); if (Color.alpha(pixel) < 128) continue;
++                Color.colorToHSV(pixel, hsv);
++                if (hsv[1] > .30f && hsv[2] > .22f) bins[Math.min(23, (int)(hsv[0] / 15))]++;
++            }
++            int best = 0; for (int i = 1; i < bins.length; i++) if (bins[i] > bins[best]) best = i;
++            if (bins[best] > 5) color = Color.HSVToColor(new float[]{best * 15f + 7.5f, .8f, .8f});
++            bitmap.recycle();
++        } catch (Exception ignored) { }
++        appColors.put(pkg, color); return color;
++    }
+     private void styleTile(FrameLayout f, boolean focused, boolean animate) {
+         Drawable d = f.getForeground();
+         if (d instanceof FocusRing) ((FocusRing) d).set(focused);
+diff --git a/launcher/app/src/main/java/com/omarchytv/home/MainActivity.java b/launcher/app/src/main/java/com/omarchytv/home/MainActivity.java
+index efc214c..304a66d 100644
+--- a/launcher/app/src/main/java/com/omarchytv/home/MainActivity.java
++++ b/launcher/app/src/main/java/com/omarchytv/home/MainActivity.java
+@@ -826,6 +826,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
+             return;
+         }
+         switch (id) {
++            case "teilor-panel":
++                startActivity(new Intent(this, TeilorQuickPanel.class));
++                break;
++            case "teilor-inputs":
++                startActivity(new Intent(this, TeilorInputsPanel.class));
++                break;
+             case "walker":
+                 openWalker();
+                 break;
+@@ -996,6 +1002,30 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
+ 
+     /** Config the views were built with; a newer JSON file (adb push, LAN companion) rebuilds the screen. */
+     private LauncherConfig builtWith;
++    private static final long PERSONAL_WALLPAPER_INTERVAL = 60L * 60L * 1000L;
++    private final Runnable personalWallpaperTick = new Runnable() {
++        @Override public void run() {
++            if (!resumed) return;
++            android.content.SharedPreferences prefs = getSharedPreferences("teilor_wallpaper", MODE_PRIVATE);
++            if (prefs.getBoolean("enabled", true) && "marlo-anime".equals(Theme.cur().name)) {
++                LauncherConfig cfg = LauncherConfig.get(MainActivity.this);
++                String[] backgrounds = WallpaperView.backgrounds(MainActivity.this, "marlo-anime");
++                if ("omarchy".equals(cfg.wallpaper) && backgrounds.length == 3) {
++                    long now = System.currentTimeMillis(), last = prefs.getLong("last", 0);
++                    if (last == 0 || last > now) prefs.edit().putLong("last", now).apply();
++                    else if (now - last >= PERSONAL_WALLPAPER_INTERVAL) {
++                        int current = Math.floorMod(cfg.wallpaperBg, backgrounds.length);
++                        int next = (current + 1 + new java.util.Random().nextInt(backgrounds.length - 1)) % backgrounds.length;
++                        builtWith = LauncherConfig.update(MainActivity.this, j -> j.put("wallpaper_bg", next));
++                        prefs.edit().putLong("last", now).apply();
++                        WallpaperView wallpaper = findViewById(R.id.wallpaper);
++                        if (wallpaper != null) wallpaper.refreshIfChanged();
++                    }
++                }
++            }
++            handler.postDelayed(this, 60_000L);
++        }
++    };
+ 
+     @Override
+     protected void onResume() {
+@@ -1023,6 +1053,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
+         }
+         builtWith = cfg;
+         resumed = true;
++        handler.removeCallbacks(personalWallpaperTick);
++        handler.post(personalWallpaperTick);
+         // KEYCODE_ASSIST never reaches dispatchKeyEvent: the system starts the Assistant role holder instead. With
+         // OmarchyTV holding that role, the mic key lands here: the Grok Bot companion by voice ("voiceKey": "companion",
+         // the default) or Walker ("launcher"; pressed again while Walker is open it starts voice search).
+@@ -1107,6 +1139,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
+         resumed = false;
+         OmarchyLink.setHomeVisible(false);
+         handler.removeCallbacks(idle);
++        handler.removeCallbacks(personalWallpaperTick);
+         handler.removeCallbacks(minuteTick);
+         handler.removeCallbacks(blink);
+         handler.removeCallbacks(agentsTick);
+@@ -3282,6 +3315,15 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
+     private AsciiMenu.Page wallpaperPage() {
+         LauncherConfig cfg = LauncherConfig.get(this);
+         AsciiMenu.Page p = new AsciiMenu.Page(str(R.string.menu_wallpaper));
++        if ("marlo-anime".equals(Theme.cur().name)) {
++            android.content.SharedPreferences prefs = getSharedPreferences("teilor_wallpaper", MODE_PRIVATE);
++            boolean enabled = prefs.getBoolean("enabled", true);
++            p.add("Mis fondos · cada hora", str(enabled ? R.string.on : R.string.off), r -> {
++                prefs.edit().putBoolean("enabled", !enabled).putLong("last", System.currentTimeMillis()).apply();
++                push(wallpaperPage());
++                return true;
++            });
++        }
+         String lRandWp = str(R.string.set_random_wallpaper);
+         p.add(lRandWp, str(cfg.randomWallpaper ? R.string.on : R.string.off), r -> {
+             boolean n = !cfg.randomWallpaper;
+diff --git a/launcher/app/src/main/java/com/omarchytv/home/ScreensaverPreviewActivity.java b/launcher/app/src/main/java/com/omarchytv/home/ScreensaverPreviewActivity.java
+index 46ce2b2..48efede 100644
+--- a/launcher/app/src/main/java/com/omarchytv/home/ScreensaverPreviewActivity.java
++++ b/launcher/app/src/main/java/com/omarchytv/home/ScreensaverPreviewActivity.java
+@@ -14,6 +14,7 @@ import android.view.WindowManager;
+ public class ScreensaverPreviewActivity extends Activity {
+ 
+     private TteSaver saver;
++    private android.widget.VideoView video;
+ 
+     @Override
+     protected void attachBaseContext(Context base) {
+@@ -24,6 +25,20 @@ public class ScreensaverPreviewActivity extends Activity {
+     protected void onCreate(Bundle savedInstanceState) {
+         super.onCreate(savedInstanceState);
+         getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
++        if ("teilor-video".equals(LauncherConfig.get(this).screensaverArt)) {
++            video = new android.widget.VideoView(this);
++            if (android.os.Build.VERSION.SDK_INT >= 26)
++                video.setAudioFocusRequest(android.media.AudioManager.AUDIOFOCUS_NONE);
++            video.setBackgroundColor(android.graphics.Color.BLACK);
++            video.setVideoURI(android.net.Uri.parse("android.resource://" + getPackageName() + "/" + R.raw.teilor_saver));
++            video.setOnPreparedListener(player -> {
++                player.setLooping(true); player.setVolume(0f, 0f);
++                video.setBackgroundColor(android.graphics.Color.TRANSPARENT); video.start();
++            });
++            video.setOnErrorListener((player, what, extra) -> { finish(); return true; });
++            setContentView(video);
++            return;
++        }
+         saver = new TteSaver(this);
+         saver.window = getWindow();
+         // v2.14: the WebView renderer died (low-RAM TV): close the screensaver, the Home screen is underneath.
+@@ -47,12 +62,14 @@ public class ScreensaverPreviewActivity extends Activity {
+     @Override
+     protected void onResume() {
+         super.onResume();
+-        saver.start();
++        if (video != null) video.start();
++        if (saver != null) saver.start();
+     }
+ 
+     @Override
+     protected void onPause() {
+-        saver.stop();
++        if (video != null) video.stopPlayback();
++        if (saver != null) saver.stop();
+         super.onPause();
+         finish();   // never left behind in the background
+         overridePendingTransition(0, 0);
+diff --git a/launcher/app/src/main/java/com/omarchytv/home/TeilorInputsPanel.java b/launcher/app/src/main/java/com/omarchytv/home/TeilorInputsPanel.java
+new file mode 100644
+index 0000000..2bcd073
+--- /dev/null
++++ b/launcher/app/src/main/java/com/omarchytv/home/TeilorInputsPanel.java
+@@ -0,0 +1,84 @@
++package com.omarchytv.home;
++
++import android.app.Activity;
++import android.content.Intent;
++import android.graphics.Color;
++import android.graphics.Typeface;
++import android.graphics.drawable.GradientDrawable;
++import android.media.tv.TvContract;
++import android.media.tv.TvInputInfo;
++import android.media.tv.TvInputManager;
++import android.os.Bundle;
++import android.view.Gravity;
++import android.view.WindowManager;
++import android.widget.Button;
++import android.widget.FrameLayout;
++import android.widget.LinearLayout;
++import android.widget.TextView;
++import android.widget.Toast;
++import java.util.ArrayList;
++import java.util.Collections;
++import java.util.List;
++
++/** Independent, translucent HDMI selector; Android's TV input player handles the actual picture. */
++public final class TeilorInputsPanel extends Activity {
++    private LinearLayout panel;
++    private int dp(float v) { return Math.round(v * getResources().getDisplayMetrics().density); }
++
++    @Override protected void onCreate(Bundle state) {
++        super.onCreate(state);
++        getWindow().setBackgroundDrawableResource(android.R.color.transparent);
++        getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
++        FrameLayout root = new FrameLayout(this); root.setBackgroundColor(0x38000000);
++        root.setOnClickListener(v -> closePanel()); root.setFocusable(false);
++        panel = new LinearLayout(this); panel.setOrientation(LinearLayout.VERTICAL);
++        panel.setPadding(dp(20), dp(20), dp(20), dp(20)); panel.setOnClickListener(v -> { }); panel.setFocusable(false);
++        GradientDrawable bg = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
++                new int[]{0xff17212d, 0xff2b4050, 0xff586b76}); bg.setCornerRadius(dp(20));
++        panel.setBackground(bg); panel.setElevation(dp(12));
++        FrameLayout.LayoutParams pos = new FrameLayout.LayoutParams(dp(270), -2, Gravity.END | Gravity.CENTER_VERTICAL);
++        pos.rightMargin = dp(20); root.addView(panel, pos);
++        TextView title = new TextView(this); title.setText("ENTRADAS"); title.setTextColor(Color.WHITE);
++        title.setTextSize(20); title.setTypeface(Typeface.MONOSPACE, Typeface.BOLD); panel.addView(title);
++        TextView sub = new TextView(this); sub.setText("Selecciona una fuente"); sub.setTextColor(0xffc1d1db);
++        sub.setTextSize(12); sub.setPadding(0, dp(3), 0, dp(12)); panel.addView(sub);
++        TvInputManager tv = (TvInputManager) getSystemService(TV_INPUT_SERVICE);
++        List<TvInputInfo> inputs = tv == null ? new ArrayList<>() : new ArrayList<>(tv.getTvInputList());
++        Collections.sort(inputs, (a,b) -> {
++            boolean ah = a.getType() == TvInputInfo.TYPE_HDMI, bh = b.getType() == TvInputInfo.TYPE_HDMI;
++            if (ah != bh) return ah ? -1 : 1;
++            return String.valueOf(a.loadLabel(this)).compareToIgnoreCase(String.valueOf(b.loadLabel(this)));
++        });
++        Button first = null;
++        for (TvInputInfo info : inputs) {
++            if (!info.isPassthroughInput()) continue;
++            CharSequence name = info.loadLabel(this);
++            String label = name == null ? "Entrada" : name.toString();
++            if (info.getType() == TvInputInfo.TYPE_HDMI && !label.toUpperCase(java.util.Locale.ROOT).contains("HDMI")) label = "HDMI " + label;
++            int stateCode = tv.getInputState(info.getId());
++            if (stateCode == TvInputManager.INPUT_STATE_CONNECTED) label += "  ·  Conectado";
++            final String id = info.getId(); Button row = TeilorQuickPanel.makeButton(this, label);
++            LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(-1, dp(48)); rp.topMargin = dp(6); panel.addView(row, rp);
++            if (first == null) first = row;
++            row.setOnClickListener(v -> openInput(id));
++        }
++        if (first == null) {
++            TextView empty = new TextView(this); empty.setText("No se detectaron entradas.");
++            empty.setTextColor(Color.WHITE); panel.addView(empty);
++        }
++        setContentView(root); if (first != null) first.requestFocus(); TeilorPanelCoordinator.open(this, panel);
++    }
++
++    @Override protected void onDestroy() { TeilorPanelCoordinator.destroyed(this); super.onDestroy(); }
++    @Override public void onBackPressed() { closePanel(); }
++    private void closePanel() { TeilorPanelCoordinator.close(this, panel); }
++
++    private void openInput(String id) {
++        try {
++            Intent open = new Intent(Intent.ACTION_VIEW).setDataAndType(
++                    TvContract.buildChannelUriForPassthroughInput(id), "vnd.android.cursor.item/channel")
++                    .setPackage("com.google.android.tv.inputplayer").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
++            startActivity(open); finish();
++        } catch (RuntimeException ex) { Toast.makeText(this, "No se pudo abrir la entrada", Toast.LENGTH_SHORT).show(); }
++    }
++}
+diff --git a/launcher/app/src/main/java/com/omarchytv/home/TeilorPanelCoordinator.java b/launcher/app/src/main/java/com/omarchytv/home/TeilorPanelCoordinator.java
+new file mode 100644
+index 0000000..bfa5ef9
+--- /dev/null
++++ b/launcher/app/src/main/java/com/omarchytv/home/TeilorPanelCoordinator.java
+@@ -0,0 +1,28 @@
++package com.omarchytv.home;
++
++import android.app.Activity;
++import android.view.View;
++import java.lang.ref.WeakReference;
++
++/** Own only one overlay and keep its motion small and inexpensive. */
++final class TeilorPanelCoordinator {
++    private static WeakReference<Activity> current = new WeakReference<>(null);
++    static void open(Activity activity, View panel) {
++        Activity previous = current.get();
++        current = new WeakReference<>(activity);
++        if (previous != null && previous != activity && !previous.isFinishing()) previous.finish();
++        panel.setAlpha(0f);
++        panel.setTranslationX(12 * panel.getResources().getDisplayMetrics().density);
++        panel.animate().alpha(1f).translationX(0f).setDuration(150).start();
++        activity.overridePendingTransition(0, 0);
++    }
++    static void close(Activity activity, View panel) {
++        if (activity.isFinishing()) return;
++        panel.animate().cancel();
++        panel.animate().alpha(0f).translationX(10 * panel.getResources().getDisplayMetrics().density)
++                .setDuration(120).withEndAction(() -> { activity.finish(); activity.overridePendingTransition(0, 0); }).start();
++    }
++    static void destroyed(Activity activity) {
++        if (current.get() == activity) current.clear();
++    }
++}
+diff --git a/launcher/app/src/main/java/com/omarchytv/home/TeilorQuickPanel.java b/launcher/app/src/main/java/com/omarchytv/home/TeilorQuickPanel.java
+new file mode 100644
+index 0000000..c067b2c
+--- /dev/null
++++ b/launcher/app/src/main/java/com/omarchytv/home/TeilorQuickPanel.java
+@@ -0,0 +1,156 @@
++package com.omarchytv.home;
++
++import android.app.Activity;
++import android.content.Intent;
++import android.content.res.ColorStateList;
++import android.graphics.Canvas;
++import android.graphics.Color;
++import android.graphics.LinearGradient;
++import android.graphics.RadialGradient;
++import android.graphics.Paint;
++import android.graphics.PorterDuff;
++import android.graphics.PorterDuffXfermode;
++import android.graphics.Shader;
++import android.graphics.Typeface;
++import android.graphics.drawable.AnimatedImageDrawable;
++import android.graphics.drawable.Drawable;
++import android.graphics.drawable.GradientDrawable;
++import android.graphics.drawable.StateListDrawable;
++import android.os.Bundle;
++import android.provider.Settings;
++import android.view.Gravity;
++import android.view.WindowManager;
++import android.widget.Button;
++import android.widget.FrameLayout;
++import android.widget.ImageView;
++import android.widget.LinearLayout;
++import android.widget.TextClock;
++import android.widget.TextView;
++import android.widget.Toast;
++
++/** Hyundai's lightweight overlay, drawn over the currently visible app. */
++public final class TeilorQuickPanel extends Activity {
++    private android.graphics.drawable.Animatable erisAnimation;
++    private FrameLayout panel;
++    private int dp(float value) { return Math.round(value * getResources().getDisplayMetrics().density); }
++
++    @Override protected void onCreate(Bundle state) {
++        super.onCreate(state);
++        getWindow().setBackgroundDrawableResource(android.R.color.transparent);
++        getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
++        FrameLayout root = new FrameLayout(this); root.setBackgroundColor(0x38000000);
++        root.setOnClickListener(v -> closePanel()); root.setFocusable(false);
++        panel = new FrameLayout(this);
++        GradientDrawable bg = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
++                new int[]{0xff17212d, 0xff243646, 0xff899ba9, 0xfffaf8fa});
++        bg.setCornerRadius(dp(20)); panel.setBackground(bg); panel.setClipToOutline(true);
++        panel.setElevation(dp(12)); panel.setOnClickListener(v -> { }); panel.setFocusable(false);
++        FrameLayout.LayoutParams pp = new FrameLayout.LayoutParams(dp(350), dp(350), Gravity.END | Gravity.CENTER_VERTICAL);
++        pp.rightMargin = dp(20); root.addView(panel, pp);
++
++        android.view.View bloom = new android.view.View(this) {
++            private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
++            @Override protected void onDraw(Canvas canvas) {
++                super.onDraw(canvas);
++                float w = getWidth(), h = getHeight();
++                paint.setShader(new RadialGradient(w * .91f, h * .91f, w * .76f,
++                        new int[]{0xfffaf8fa, 0xeefaf8fa, 0x00faf8fa},
++                        new float[]{0f, .42f, 1f}, Shader.TileMode.CLAMP));
++                canvas.drawRect(0, 0, w, h, paint); paint.setShader(null);
++            }
++        };
++        panel.addView(bloom, new FrameLayout.LayoutParams(-1, -1));
++        FadeImage art = new FadeImage(this);
++        FrameLayout.LayoutParams artPos = new FrameLayout.LayoutParams(dp(205), dp(205), Gravity.BOTTOM | Gravity.END);
++        panel.addView(art, artPos);
++        ImageView eris = new ImageView(this); eris.setScaleType(ImageView.ScaleType.CENTER_CROP);
++        art.addView(eris, new FrameLayout.LayoutParams(-1, -1));
++        try {
++            if (android.os.Build.VERSION.SDK_INT >= 28) {
++                Drawable image = android.graphics.ImageDecoder.decodeDrawable(
++                        android.graphics.ImageDecoder.createSource(getAssets(), "eris-panel.gif"));
++                eris.setImageDrawable(image);
++                if (image instanceof AnimatedImageDrawable) {
++                    AnimatedImageDrawable anim = (AnimatedImageDrawable) image;
++                    anim.setRepeatCount(AnimatedImageDrawable.REPEAT_INFINITE); erisAnimation = anim;
++                }
++            } else {
++                try (java.io.InputStream in = getAssets().open("eris-panel.gif")) {
++                    eris.setImageBitmap(android.graphics.BitmapFactory.decodeStream(in));
++                }
++            }
++        } catch (java.io.IOException | RuntimeException ignored) { }
++
++        LinearLayout content = new LinearLayout(this); content.setOrientation(LinearLayout.VERTICAL);
++        FrameLayout.LayoutParams cp = new FrameLayout.LayoutParams(dp(165), -1, Gravity.START | Gravity.TOP);
++        cp.leftMargin = dp(20); cp.topMargin = dp(19); cp.bottomMargin = dp(12); panel.addView(content, cp);
++        TextClock clock = new TextClock(this); clock.setFormat12Hour("h:mm a"); clock.setFormat24Hour("HH:mm");
++        clock.setTextSize(30); clock.setTextColor(Color.WHITE); clock.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
++        content.addView(clock);
++        TextClock date = new TextClock(this); date.setFormat12Hour("EEE, d MMMM"); date.setFormat24Hour("EEE, d MMMM");
++        date.setTextSize(12); date.setTextColor(0xffe2d9df); date.setSingleLine(true); content.addView(date);
++        TextView title = new TextView(this); title.setText("AJUSTES RÁPIDOS"); title.setTextColor(0xffe6c6cc);
++        title.setTextSize(11); title.setPadding(0, dp(17), 0, dp(5)); content.addView(title);
++        add(content, "Imagen", new Intent("android.settings.DISPLAY_SETTINGS")
++                .setClassName("com.realtek.slices", "com.realtek.tv.settings.activity.PictureSetupActivity"));
++        add(content, "Sonido", new Intent("com.android.tv.action.VIEW_SOUND_SETTINGS")
++                .setClassName("com.realtek.slices", "com.realtek.tv.settings.activity.SoundSetupActivity"));
++        add(content, "Entradas", new Intent(this, TeilorInputsPanel.class));
++        add(content, "Más ajustes", new Intent(Settings.ACTION_SETTINGS));
++        setContentView(root); content.getChildAt(3).requestFocus(); TeilorPanelCoordinator.open(this, panel);
++    }
++
++    @Override protected void onResume() { super.onResume(); if (erisAnimation != null) erisAnimation.start(); }
++    @Override protected void onPause() { if (erisAnimation != null) erisAnimation.stop(); super.onPause(); }
++    @Override protected void onDestroy() { TeilorPanelCoordinator.destroyed(this); super.onDestroy(); }
++    @Override public void onBackPressed() { closePanel(); }
++    private void closePanel() { TeilorPanelCoordinator.close(this, panel); }
++
++    private void add(LinearLayout panel, String label, Intent intent) {
++        Button button = makeButton(this, label);
++        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-1, dp(43)); p.topMargin = dp(5); panel.addView(button, p);
++        button.setOnClickListener(v -> {
++            try { startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); finish(); }
++            catch (RuntimeException ex) { Toast.makeText(this, "No se pudo abrir " + label, Toast.LENGTH_SHORT).show(); }
++        });
++    }
++
++    static Button makeButton(Activity activity, String label) {
++        float density = activity.getResources().getDisplayMetrics().density;
++        Button button = new Button(activity); button.setText(label); button.setAllCaps(false); button.setTextSize(14);
++        button.setFocusableInTouchMode(true); button.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
++        button.setPadding(Math.round(14 * density), 0, Math.round(8 * density), 0);
++        GradientDrawable normal = new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
++                new int[]{0xe52b2938, 0xd53e3444}); normal.setCornerRadius(12 * density);
++        GradientDrawable focused = new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
++                new int[]{0xffffeeed, 0xffeacbcf}); focused.setCornerRadius(12 * density);
++        StateListDrawable states = new StateListDrawable(); states.addState(new int[]{android.R.attr.state_focused}, focused);
++        states.addState(new int[]{}, normal); button.setBackground(states);
++        button.setTextColor(new ColorStateList(new int[][]{new int[]{android.R.attr.state_focused}, new int[]{}},
++                new int[]{0xff38202b, Color.WHITE}));
++        return button;
++    }
++
++    /** Fades the white-edged original GIF into the panel at its upper and left edges. */
++    private final class FadeImage extends FrameLayout {
++        private final Paint mask = new Paint(Paint.ANTI_ALIAS_FLAG);
++        FadeImage(Activity context) { super(context); setWillNotDraw(false); }
++        @Override protected void dispatchDraw(Canvas canvas) {
++            int save = canvas.saveLayer(0, 0, getWidth(), getHeight(), null);
++            super.dispatchDraw(canvas);
++            mask.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.DST_IN));
++            float w = getWidth(), h = getHeight();
++            mask.setShader(new RadialGradient(w * .76f, h * .78f, w * 1.02f,
++                    new int[]{0xffffffff, 0xffffffff, 0x00ffffff},
++                    new float[]{0f, .40f, 1f}, Shader.TileMode.CLAMP));
++            canvas.drawRect(0, 0, getWidth(), getHeight(), mask);
++            mask.setShader(new LinearGradient(0, 0, dp(85), 0,
++                    0x00ffffff, 0xffffffff, Shader.TileMode.CLAMP));
++            canvas.drawRect(0, 0, w, h, mask);
++            mask.setShader(new LinearGradient(0, 0, 0, dp(85),
++                    0x00ffffff, 0xffffffff, Shader.TileMode.CLAMP));
++            canvas.drawRect(0, 0, w, h, mask);
++            mask.setShader(null); mask.setXfermode(null); canvas.restoreToCount(save);
++        }
++    }
++}
+diff --git a/launcher/app/src/main/res/values/config.xml b/launcher/app/src/main/res/values/config.xml
+index d8527ea..c031739 100644
+--- a/launcher/app/src/main/res/values/config.xml
++++ b/launcher/app/src/main/res/values/config.xml
+@@ -7,10 +7,12 @@
+ 
+     <!-- Apps pinned to the dock row at the bottom, in this order. Missing apps are skipped. -->
+     <string-array name="dock_apps">
+-        <item>com.netflix.ninja</item>
+-        <item>com.amazon.amazonvideo.livingroom</item>
+         <item>com.google.android.youtube.tv</item>
+-        <item>com.disney.disneyplus</item>
++        <item>com.google.android.youtube.tvmusic</item>
++        <item>com.darkdeveloper.kawaiianimes</item>
++        <item>com.android.mgstxNF</item>
++        <item>com.spotify.tv.android</item>
++        <item>com.android.vending</item>
+     </string-array>
+ 
+     <!-- Apps never shown as tiles (e.g. the Live TV app, which the Inputs menu already covers). -->
+@@ -43,7 +45,7 @@
+     <!-- Xiaomi / MediaTek sets: com.mediatek.wwtv.tvcenter -->
+ 
+     <!-- Tiles per row in the grid; the dock always has this many slots. -->
+-    <integer name="columns">7</integer>
++    <integer name="columns">6</integer>
+ 
+     <!-- Logo on the home screen and in the screensaver:
+          "omarchy-tv" = Omarchy's pixel logo.txt plus a matching "TV" (default),
+diff --git a/launcher/app/src/main/res/xml/home_accessibility.xml b/launcher/app/src/main/res/xml/home_accessibility.xml
+index c899145..1d969a2 100644
+--- a/launcher/app/src/main/res/xml/home_accessibility.xml
++++ b/launcher/app/src/main/res/xml/home_accessibility.xml
+@@ -3,6 +3,8 @@
+ <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+     android:accessibilityEventTypes="typeWindowStateChanged"
+     android:accessibilityFeedbackType="feedbackGeneric"
++    android:accessibilityFlags="flagRequestFilterKeyEvents"
++    android:canRequestFilterKeyEvents="true"
+     android:canRetrieveWindowContent="false"
+     android:description="@string/home_service_desc"
+     android:notificationTimeout="0" />

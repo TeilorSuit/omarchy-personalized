@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "random_theme": false,
+  "random_wallpaper": false,
+  "wallpaper_intro": false,
+  "bootScreen": "off",
+  "theme": {"name": "marlo-anime", "source": "custom", "mode": "dark", "accent": "#b59790", "accent2": "#87a9b0"},
+  "wallpaper": "omarchy",
+  "wallpaper_bg": 0,
+  "dock": ["com.google.android.youtube.tv", "com.google.android.youtube.tvmusic", "com.darkdeveloper.kawaiianimes", "com.android.mgstxNF", "com.spotify.tv.android", "com.android.vending"],
+  "geometry": {"appSize": "small", "fontScale": 1, "tileScale": 0.92, "gaps": 8, "border": 2, "transparency": 24, "wallpaperDim": "off"},
+  "panes": ["weather"],
+  "textTiles": true,
+  "homeWidgets": {"weather": true, "pc": false, "ai": false, "deploys": false, "term": true},
+  "prompt": {"user": "teilor", "host": "tv"},
+  "screensaver": {"art": "teilor-video", "clock": true, "idleSec": 600},
+  "link": {"enabled": false},
+  "cast": {"enabled": false},
+  "voiceKey": "assistant",
+  "tv": {"enabled": false}
+}
