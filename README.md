@@ -1,31 +1,43 @@
-# Omarchy personalizado para Teilor
+# OmarchyTV personalizado
 
-Personalización de [OmarchyTV](https://github.com/piermark/omarchytv) v2.15.1, basada en el commit `0365e6b704ebb0f99c03b5c460fd36d5e84fdb9f`. OmarchyTV es obra de Marco Porro y sus colaboradores; este repositorio contiene cambios personales, no es el proyecto oficial. Se conserva su licencia MIT en `LICENSE`.
+Una personalización de [OmarchyTV](https://github.com/piermark/omarchytv) para Android TV y Google TV, con una interfaz inspirada en terminales Linux: fondos a pantalla completa, paneles discretos y un dock de aplicaciones con colores y transparencia.
 
-El rótulo TEILOR usa texto generado con [figlet.js](https://github.com/patorjk/figlet.js), fuente ANSI Shadow (autor no indicado); la licencia de figlet.js está en `FIGLET-LICENSE.txt`.
+El proyecto se basa en OmarchyTV v2.15.1, commit `0365e6b704ebb0f99c03b5c460fd36d5e84fdb9f`. Es una modificación independiente del proyecto de Marco Porro y sus colaboradores; la licencia original se conserva en `LICENSE`.
 
-Incluye dock con nombres, colores y transparencia, logotipo TEILOR con letras de terminal, paneles propios de ajustes y entradas, remapeo del mando, salvapantallas de vídeo y rotación de tres fondos personales aproximadamente cada hora mientras el inicio está visible. Al pulsar Home estando ya en inicio se evita volver a cargarlo. Cada botón abre o cierra su panel; el otro cambia directamente de panel, con una transición breve. Se puede activar o desactivar la rotación en el menú de fondos del tema personalizado.
+## Características
 
-**Los fondos, el GIF y el vídeo no se distribuyen aquí.** Aporta tus propios archivos y comprueba que tienes derecho a utilizarlos. La clave de firma, los APK y los ajustes concretos de cada televisor también permanecen fuera del repositorio. El respaldo completo de Teilor está guardado por separado en su PC.
+- Inicio con rótulo ASCII, reloj, clima y accesos a aplicaciones.
+- Paneles superpuestos de ajustes rápidos y entradas. Cada botón abre o cierra su panel; el otro permite cambiar directamente entre ambos.
+- Remapeo de botones del mando y respuesta más rápida al pulsar Home desde el inicio.
+- Rotación opcional de tres fondos, aproximadamente cada hora mientras el inicio está visible.
+- Salvapantallas de vídeo y compatibilidad con una animación propia en el panel de ajustes.
+
+El rótulo incluido muestra `TEILOR`; para cambiarlo, edita `logoText()` en `launcher/app/src/main/java/com/omarchytv/home/HomeV29.java` después de aplicar el parche. El texto se generó con [figlet.js](https://github.com/patorjk/figlet.js), fuente ANSI Shadow (autor no indicado); la licencia de figlet.js está en `FIGLET-LICENSE.txt`.
 
 ## Preparación en Windows
 
-Requisitos: Git, JDK 17 y Android SDK con plataforma 34 y build-tools 34.0.0. Prepara un GIF llamado `eris-panel.gif`, un MP4 llamado `teilor_saver.mp4` y una carpeta con tres JPG: `01-rei.jpg`, `02-roxy.jpg`, `03-zerotwo.jpg` (pueden ser tus imágenes, con esos nombres). Después ejecuta PowerShell:
+Se necesita Git, JDK 17 y Android SDK con la plataforma 34 y build-tools 34.0.0. Los archivos multimedia no se incluyen en el repositorio. Prepara un GIF, un vídeo MP4 y una carpeta con tres imágenes JPG con los nombres `01-rei.jpg`, `02-roxy.jpg` y `03-zerotwo.jpg`; pueden ser imágenes propias con esos nombres.
 
 ```powershell
-.\preparar.ps1 -Destino C:\tv\omarchytv-teilor -Gif C:\imagenes\eris-panel.gif -Fondos C:\imagenes\fondos -Video C:\imagenes\teilor_saver.mp4
+.\preparar.ps1 -Destino C:\tv\omarchytv-personalizado -Gif C:\imagenes\animacion.gif -Fondos C:\imagenes\fondos -Video C:\imagenes\salvapantallas.mp4
 ```
 
-El script clona el proyecto original en el commit fijado, aplica `personalizacion.patch` y copia los archivos propios. No modifica el televisor ni el repositorio de origen. Para compilar, entra en la carpeta `launcher` creada y ejecuta `./gradlew.bat assembleDebug`. `config.example.json` sirve como punto de partida para la configuración, pero hay que adaptarlo a las aplicaciones instaladas.
+El script clona OmarchyTV en el commit fijado, comprueba y aplica `personalizacion.patch` y copia los archivos multimedia. No instala nada en el televisor. Para compilar, entra en la carpeta `launcher` creada y ejecuta:
 
-Opcionalmente, se puede colocar una animación WebP propia en `launcher/app/src/main/assets/eris-panel.webp`; el panel la preferirá sobre el GIF. La versión usada en la Hyundai es un WebP de 430 × 430 creado a partir del GIF aportado por el usuario, para evitar una nueva reducción a la paleta limitada de GIF. Ninguno de esos archivos personales está incluido aquí.
+```powershell
+.\gradlew.bat assembleDebug
+```
+
+`config.example.json` ofrece una configuración inicial; adapta la lista de aplicaciones y los demás ajustes al dispositivo. Las rutas y nombres internos de algunos recursos conservan identificadores de la configuración original.
+
+También se puede colocar una animación WebP propia en `launcher/app/src/main/assets/eris-panel.webp`; el panel la usa en lugar del GIF si está presente. Reducir sus dimensiones puede ayudar a ahorrar memoria en dispositivos modestos.
 
 ## Instalación y compatibilidad
 
-Esta versión se probó en un Hyundai HYLED4326QG con Android/Google TV 14. Los códigos físicos del mando y las actividades de imagen y sonido son específicos del dispositivo Realtek; en otras TV pueden no existir o tener nombres distintos. El selector usa `TvInputManager` y el reproductor de entradas del sistema. No deshabilites el launcher original hasta verificar Home, ajustes, entradas y recuperación en el dispositivo de destino. Guarda antes una copia de ajustes y comprueba que tienes acceso ADB funcional.
+La implementación se ha probado en un Hyundai HYLED4326QG con Android/Google TV 14. Los códigos físicos del mando y las actividades de imagen y sonido corresponden a ese dispositivo Realtek; en otros televisores pueden ser diferentes. El selector usa `TvInputManager` y el reproductor de entradas del sistema.
 
-Para actualizar una instalación existente, el APK debe firmarse con la misma clave que la instalación; guarda esa clave en privado. Un APK debug con otra firma no actualiza la instalación existente. No desinstales a ciegas, ya que se perderían datos. Las preferencias del temporizador están en `teilor_wallpaper` dentro de los datos privados de la aplicación; no forman parte de `omarchytv.json`.
+Antes de cambiar el launcher predeterminado, guarda los ajustes y verifica que Home, entradas, ajustes y el acceso ADB funcionen en el dispositivo. Para actualizar una instalación existente, el APK debe estar firmado con la misma clave. Conserva la clave fuera del repositorio y evita desinstalar la aplicación sin respaldar sus datos.
 
-El remapeo depende del servicio de accesibilidad «Botón Inicio OmarchyTV». Después de actualizar o detener forzosamente la aplicación, comprueba que siga habilitado y que los botones físicos abran los paneles; si no, vuelve a habilitarlo desde Accesibilidad. No basta con abrir los paneles mediante una orden ADB para probar el mando. El GIF personal se puede reducir antes de compilar para ahorrar almacenamiento y memoria; el panel limita además la resolución de decodificación.
+El remapeo depende del servicio de accesibilidad «Botón Inicio OmarchyTV». Tras instalar o detener la aplicación, comprueba que el servicio siga activo y prueba las teclas físicas. La opción de rotación propia se controla desde el menú de fondos del tema `marlo-anime`; sus preferencias del temporizador se guardan en los datos privados de la aplicación, no en `omarchytv.json`.
 
-La opción de configuración original que rota temas y fondos es independiente y se deja desactivada para usar únicamente los tres fondos personales. No se fuerza una transición mientras se usa otra aplicación o la TV duerme: al volver al inicio se revisa si ya pasó una hora.
+La rotación de fondos y temas incluida originalmente en OmarchyTV es independiente. Para limitar la rotación a los tres fondos propios, mantén desactivadas las opciones originales `random_theme` y `random_wallpaper`. El cambio se comprueba al estar en el inicio, sin despertar el televisor.
