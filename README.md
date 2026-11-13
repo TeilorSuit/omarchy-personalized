@@ -2,7 +2,7 @@
 
 Personalización de [OmarchyTV](https://github.com/piermark/omarchytv) v2.15.1, basada en el commit `0365e6b704ebb0f99c03b5c460fd36d5e84fdb9f`. OmarchyTV es obra de Marco Porro y sus colaboradores; este repositorio contiene cambios personales, no es el proyecto oficial. Se conserva su licencia MIT en `LICENSE`.
 
-Incluye dock con nombres, colores y transparencia, logotipo TEILOR, paneles propios de ajustes y entradas, remapeo del mando, salvapantallas de vídeo y rotación de tres fondos personales aproximadamente cada hora mientras el inicio está visible. Al pulsar Home estando ya en inicio se evita volver a cargarlo. Los paneles cierran el anterior y usan una transición breve. Se puede activar o desactivar la rotación en el menú de fondos del tema personalizado.
+Incluye dock con nombres, colores y transparencia, logotipo TEILOR, paneles propios de ajustes y entradas, remapeo del mando, salvapantallas de vídeo y rotación de tres fondos personales aproximadamente cada hora mientras el inicio está visible. Al pulsar Home estando ya en inicio se evita volver a cargarlo. Cada botón abre o cierra su panel; el otro cambia directamente de panel, con una transición breve. Se puede activar o desactivar la rotación en el menú de fondos del tema personalizado.
 
 **Los fondos, el GIF y el vídeo no se distribuyen aquí.** Aporta tus propios archivos y comprueba que tienes derecho a utilizarlos. La clave de firma, los APK y los ajustes concretos de cada televisor también permanecen fuera del repositorio. El respaldo completo de Teilor está guardado por separado en su PC.
 
