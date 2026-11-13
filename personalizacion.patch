@@ -107,7 +107,7 @@ index 33161f0..2ae8994 100644
          return super.onUnbind(intent);
      }
 diff --git a/launcher/app/src/main/java/com/omarchytv/home/HomeV29.java b/launcher/app/src/main/java/com/omarchytv/home/HomeV29.java
-index 0934912..7cbed1a 100644
+index 0934912..806e6d0 100644
 --- a/launcher/app/src/main/java/com/omarchytv/home/HomeV29.java
 +++ b/launcher/app/src/main/java/com/omarchytv/home/HomeV29.java
 @@ -255,8 +255,8 @@ final class HomeV29 extends FrameLayout {
@@ -121,7 +121,7 @@ index 0934912..7cbed1a 100644
          termLogo.setHorizontallyScrolling(true);
          termInfo = text("", 20, false);
          termInfo.setMaxLines(3);   // v2.10: one item per line (the single line was cut to "up" on the TV)
-@@ -585,14 +585,11 @@ final class HomeV29 extends FrameLayout {
+@@ -585,14 +585,13 @@ final class HomeV29 extends FrameLayout {
      }
  
      private String logoText() {
@@ -133,15 +133,17 @@ index 0934912..7cbed1a 100644
 -        } catch (Exception e) {
 -            return "OMARCHY TV";
 -        }
-+        return " _____ _____ ___ _     ___  ____  \n"
-+             + "|_   _| ____|_ _| |   / _ \\|  _ \\ \n"
-+             + "  | | |  _|  | || |  | | | | |_) |\n"
-+             + "  | | | |___ | || |__| |_| |  _ < \n"
-+             + "  |_| |_____|___|_____\\___/|_| \\_\\\n";
++        // TEILOR rendered with figlet.js (MIT), ANSI Shadow font (author uncredited).
++        return "████████╗███████╗██╗██╗      ██████╗ ██████╗ \n"
++             + "╚══██╔══╝██╔════╝██║██║     ██╔═══██╗██╔══██╗\n"
++             + "   ██║   █████╗  ██║██║     ██║   ██║██████╔╝\n"
++             + "   ██║   ██╔══╝  ██║██║     ██║   ██║██╔══██╗\n"
++             + "   ██║   ███████╗██║███████╗╚██████╔╝██║  ██║\n"
++             + "   ╚═╝   ╚══════╝╚═╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝\n";
      }
  
      // ---- alpha rules (spec §2): windows = opacity, bar = +0.10 (max 0.95), tiles = −0.15 (min 0.30); no blur
-@@ -2128,7 +2125,7 @@ final class HomeV29 extends FrameLayout {
+@@ -2128,7 +2127,7 @@ final class HomeV29 extends FrameLayout {
              int inner = inner();
              int gap = px(20);
              int w = tileW(inner, gap, cols);
@@ -150,7 +152,7 @@ index 0934912..7cbed1a 100644
              if (tvFirst) lp.rightMargin = pos == getItemCount() - 1 ? 0 : gap;
              else {
                  lp.width = w;
-@@ -2157,7 +2154,15 @@ final class HomeV29 extends FrameLayout {
+@@ -2157,7 +2156,15 @@ final class HomeV29 extends FrameLayout {
                  tv.setVisibility(banner != null ? GONE : VISIBLE);
                  tv.setTextColor(cfg.textTiles ? t.fg : t.fgBright);
                  GradientDrawable bg = new GradientDrawable();
@@ -167,7 +169,7 @@ index 0934912..7cbed1a 100644
                  f.setBackground(bg);
              }
              f.setAlpha(movingApp >= 0 && app == movingApp && (movingInGrid != tvFirst) ? 0.85f : 1f);
-@@ -2193,6 +2198,30 @@ final class HomeV29 extends FrameLayout {
+@@ -2193,6 +2200,30 @@ final class HomeV29 extends FrameLayout {
          }
      }
  
