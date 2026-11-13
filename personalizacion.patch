@@ -1,16 +1,18 @@
 diff --git a/launcher/app/src/main/AndroidManifest.xml b/launcher/app/src/main/AndroidManifest.xml
-index 303fdb8..f0a50d2 100644
+index 303fdb8..99f7d49 100644
 --- a/launcher/app/src/main/AndroidManifest.xml
 +++ b/launcher/app/src/main/AndroidManifest.xml
-@@ -127,6 +127,12 @@
+@@ -127,6 +127,14 @@
              </intent-filter>
          </activity>
  
 +        <activity android:name=".TeilorQuickPanel" android:exported="false"
 +            android:excludeFromRecents="true" android:noHistory="true"
++            android:taskAffinity="${applicationId}.panels"
 +            android:theme="@android:style/Theme.Translucent.NoTitleBar.Fullscreen" />
 +        <activity android:name=".TeilorInputsPanel" android:exported="false"
 +            android:excludeFromRecents="true" android:noHistory="true"
++            android:taskAffinity="${applicationId}.panels"
 +            android:theme="@android:style/Theme.Translucent.NoTitleBar.Fullscreen" />
          <!-- v2.14 OmarchyTV Arcade: the games in a WebView (assets/games), in the launcher's process so it can reach the PC link. -->
          <activity
